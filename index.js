@@ -1,14 +1,10 @@
 const http = require("http");
-const { Client, GatewayIntentBits } = require("discord.js");
+const WebSocket = require("ws");
 
 const token = process.env.DISCORD_TOKEN;
 
-console.log("DISCORD_TOKEN available:", Boolean(token));
-console.log("DISCORD_TOKEN length:", token ? token.length : 0);
-
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
-});
+console.log("TOKEN EXISTS:", Boolean(token));
+console.log("TOKEN LENGTH:", token ? token.length : 0);
 
 const server = http.createServer((req, res) => {
   res.writeHead(200);
@@ -16,25 +12,39 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(process.env.PORT || 10000, "0.0.0.0", () => {
-  console.log("Web server started");
+  console.log("WEB SERVER STARTED");
 });
 
-client.on("debug", (message) => {
-  console.log("DISCORD DEBUG:", message);
+const ws = new WebSocket("wss://gateway.discord.gg/?v=10&encoding=json");
+
+ws.on("open", () => {
+  console.log("DISCORD GATEWAY CONNECTED");
+
+  ws.send(JSON.stringify({
+    op: 2,
+    d: {
+      token: token,
+      intents: 1,
+      properties: {
+        os: "linux",
+        browser: "discord.js",
+        device: "discord.js"
+      }
+    }
+  }));
+
+  console.log("IDENTIFY SENT");
 });
 
-client.on("warn", (message) => {
-  console.warn("DISCORD WARNING:", message);
+ws.on("message", (data) => {
+  console.log("GATEWAY MESSAGE RECEIVED");
+  console.log(data.toString().slice(0, 500));
 });
 
-client.on("error", (error) => {
-  console.error("DISCORD ERROR:", error);
+ws.on("error", (error) => {
+  console.error("WEBSOCKET ERROR:", error.message);
 });
 
-client.once("ready", (client) => {
-  console.log("DISCORD READY:", client.user.tag);
+ws.on("close", (code, reason) => {
+  console.log("WEBSOCKET CLOSED:", code, reason.toString());
 });
-
-client.login(token)
-  .then(() => console.log("LOGIN PROMISE COMPLETED"))
-  .catch((error) => console.error("LOGIN FAILED:", error));
