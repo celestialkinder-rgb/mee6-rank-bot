@@ -1,50 +1,40 @@
 const http = require("http");
-const WebSocket = require("ws");
+const { Client, GatewayIntentBits } = require("discord.js");
 
 const token = process.env.DISCORD_TOKEN;
 
-console.log("TOKEN EXISTS:", Boolean(token));
-console.log("TOKEN LENGTH:", token ? token.length : 0);
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent
+  ]
+});
 
+// Keep Render's web service alive
 const server = http.createServer((req, res) => {
   res.writeHead(200);
-  res.end("Bot is running!");
+  res.end("B.T.N.L System is running!");
 });
 
 server.listen(process.env.PORT || 10000, "0.0.0.0", () => {
   console.log("WEB SERVER STARTED");
 });
 
-const ws = new WebSocket("wss://gateway.discord.gg/?v=10&encoding=json");
-
-ws.on("open", () => {
-  console.log("DISCORD GATEWAY CONNECTED");
-
-  ws.send(JSON.stringify({
-    op: 2,
-    d: {
-      token: token,
-      intents: 1,
-      properties: {
-        os: "linux",
-        browser: "discord.js",
-        device: "discord.js"
-      }
-    }
-  }));
-
-  console.log("IDENTIFY SENT");
+// Bot is online
+client.once("ready", () => {
+  console.log(`BOT ONLINE: ${client.user.tag}`);
 });
 
-ws.on("message", (data) => {
-  console.log("GATEWAY MESSAGE RECEIVED");
-  console.log(data.toString().slice(0, 500));
+// !rank command
+client.on("messageCreate", async (message) => {
+  if (message.author.bot) return;
+
+  if (message.content.toLowerCase() === "!rank") {
+    await message.reply("Rank card test working!");
+  }
 });
 
-ws.on("error", (error) => {
-  console.error("WEBSOCKET ERROR:", error.message);
-});
-
-ws.on("close", (code, reason) => {
-  console.log("WEBSOCKET CLOSED:", code, reason.toString());
-});
+client.login(token)
+  .then(() => console.log("LOGIN SUCCESSFUL"))
+  .catch((error) => console.error("LOGIN FAILED:", error));
