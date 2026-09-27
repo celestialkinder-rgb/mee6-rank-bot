@@ -27,7 +27,6 @@ ws.on("open", () => {
 ws.on("message", async (data) => {
   const packet = JSON.parse(data.toString());
 
-  // Discord Gateway connection
   if (packet.op === 10) {
     heartbeatInterval = setInterval(() => {
       ws.send(JSON.stringify({
@@ -37,9 +36,9 @@ ws.on("message", async (data) => {
     }, packet.d.heartbeat_interval);
 
     const intents =
-      1 |       // GUILDS
-      512 |     // GUILD_MESSAGES
-      32768;    // MESSAGE_CONTENT
+      1 |
+      512 |
+      32768;
 
     ws.send(JSON.stringify({
       op: 2,
@@ -57,12 +56,10 @@ ws.on("message", async (data) => {
     console.log("IDENTIFY SENT");
   }
 
-  // Bot is online
   if (packet.t === "READY") {
     console.log("BOT ONLINE:", packet.d.user.username);
   }
 
-  // Message received
   if (packet.t === "MESSAGE_CREATE") {
     const message = packet.d;
 
@@ -70,10 +67,6 @@ ws.on("message", async (data) => {
 
     if (message.content?.toLowerCase() === "!rank") {
       console.log("!rank USED BY:", message.author.username);
-
-      const response = {
-        content: "Rank card test working!"
-      };
 
       const result = await fetch(
         `https://discord.com/api/v10/channels/${message.channel_id}/messages`,
@@ -83,11 +76,19 @@ ws.on("message", async (data) => {
             "Authorization": `Bot ${token}`,
             "Content-Type": "application/json"
           },
-          body: JSON.stringify(response)
+          body: JSON.stringify({
+            content: "Rank card test working!"
+          })
         }
       );
 
       console.log("DISCORD API STATUS:", result.status);
+
+      console.log(
+        "DISCORD API HEADERS:",
+        JSON.stringify(Object.fromEntries(result.headers.entries()))
+      );
+
       console.log(
         "DISCORD API RESPONSE:",
         await result.text()
@@ -101,11 +102,7 @@ ws.on("error", (error) => {
 });
 
 ws.on("close", (code, reason) => {
-  console.log(
-    "WEBSOCKET CLOSED:",
-    code,
-    reason.toString()
-  );
+  console.log("WEBSOCKET CLOSED:", code, reason.toString());
 
   if (heartbeatInterval) {
     clearInterval(heartbeatInterval);
