@@ -21,7 +21,7 @@ server.listen(process.env.PORT || 10000, "0.0.0.0", () => {
   console.log("WEB SERVER STARTED");
 });
 
-// Bot is online
+// Bot becomes ready
 client.once("ready", () => {
   console.log(`BOT ONLINE: ${client.user.tag}`);
 });
@@ -35,9 +35,9 @@ client.on("messageCreate", async (message) => {
   }
 });
 
+// Login to Discord
 console.log("ABOUT TO LOGIN");
+
 client.login(token)
-  .then(() => console.log("LOGIN SUCCESSFUL"))
-  .catch((error) => console.error("LOGIN FAILED:", error));
   .then(() => console.log("LOGIN SUCCESSFUL"))
   .catch((error) => console.error("LOGIN FAILED:", error));
