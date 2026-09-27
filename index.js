@@ -1,19 +1,9 @@
 const http = require("http");
-const { Client, GatewayIntentBits } = require("discord.js");
+const WebSocket = require("ws");
 
 const token = process.env.DISCORD_TOKEN;
 
-console.log("TOKEN EXISTS:", Boolean(token));
-console.log("TOKEN LENGTH:", token ? token.length : 0);
-
-const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ]
-});
-
+// Render web server
 const server = http.createServer((req, res) => {
   res.writeHead(200);
   res.end("B.T.N.L System is running!");
@@ -23,36 +13,94 @@ server.listen(process.env.PORT || 10000, "0.0.0.0", () => {
   console.log("WEB SERVER STARTED");
 });
 
-client.once("ready", () => {
-  console.log(`BOT ONLINE: ${client.user.tag}`);
+// Discord Gateway
+const ws = new WebSocket(
+  "wss://gateway.discord.gg/?v=10&encoding=json"
+);
+
+let heartbeatInterval;
+
+ws.on("open", () => {
+  console.log("DISCORD GATEWAY CONNECTED");
 });
 
-client.on("messageCreate", async (message) => {
-  if (message.author.bot) return;
+ws.on("message", async (data) => {
+  const packet = JSON.parse(data.toString());
 
-  if (message.content.toLowerCase() === "!rank") {
-    await message.reply("Rank card test working!");
+  // Discord tells us how often to heartbeat
+  if (packet.op === 10) {
+    heartbeatInterval = setInterval(() => {
+      ws.send(JSON.stringify({
+        op: 1,
+        d: null
+      }));
+    }, packet.d.heartbeat_interval);
+
+    // Guilds + Guild Messages + Message Content
+    const intents =
+      1 |      // GUILDS
+      512 |    // GUILD_MESSAGES
+      32768;   // MESSAGE_CONTENT
+
+    ws.send(JSON.stringify({
+      op: 2,
+      d: {
+        token: token,
+        intents: intents,
+        properties: {
+          os: "linux",
+          browser: "B.T.N.L System",
+          device: "B.T.N.L System"
+        }
+      }
+    }));
+
+    console.log("IDENTIFY SENT");
+  }
+
+  // Bot successfully connected
+  if (packet.t === "READY") {
+    console.log("BOT ONLINE:", packet.d.user.username);
+  }
+
+  // Someone sent a message
+  if (packet.t === "MESSAGE_CREATE") {
+    const message = packet.d;
+
+    if (message.author?.bot) return;
+
+    if (message.content?.toLowerCase() === "!rank") {
+      console.log("!rank USED BY:", message.author.username);
+
+      const response = {
+        content: "Rank card test working!"
+      };
+
+      await fetch(
+        `https://discord.com/api/v10/channels/${message.channel_id}/messages`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bot ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(response)
+        }
+      );
+
+      console.log("RANK RESPONSE SENT");
+    }
   }
 });
 
-client.on("debug", (message) => {
-  console.log("DISCORD DEBUG:", message);
+ws.on("error", (error) => {
+  console.error("WEBSOCKET ERROR:", error.message);
 });
 
-client.on("warn", (message) => {
-  console.warn("DISCORD WARNING:", message);
+ws.on("close", (code, reason) => {
+  console.log("WEBSOCKET CLOSED:", code, reason.toString());
+
+  if (heartbeatInterval) {
+    clearInterval(heartbeatInterval);
+  }
 });
-
-client.on("error", (error) => {
-  console.error("DISCORD ERROR:", error);
-});
-
-console.log("ABOUT TO LOGIN");
-
-client.login(token)
-  .then(() => {
-    console.log("LOGIN PROMISE COMPLETED");
-  })
-  .catch((error) => {
-    console.error("LOGIN FAILED:", error);
-  });
