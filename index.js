@@ -35,6 +35,9 @@ client.on("messageCreate", async (message) => {
   }
 });
 
+console.log("ABOUT TO LOGIN");
 client.login(token)
+  .then(() => console.log("LOGIN SUCCESSFUL"))
+  .catch((error) => console.error("LOGIN FAILED:", error));
   .then(() => console.log("LOGIN SUCCESSFUL"))
   .catch((error) => console.error("LOGIN FAILED:", error));
