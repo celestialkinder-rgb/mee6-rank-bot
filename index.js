@@ -27,7 +27,7 @@ ws.on("open", () => {
 ws.on("message", async (data) => {
   const packet = JSON.parse(data.toString());
 
-  // Discord tells us how often to heartbeat
+  // Discord Gateway connection
   if (packet.op === 10) {
     heartbeatInterval = setInterval(() => {
       ws.send(JSON.stringify({
@@ -36,11 +36,10 @@ ws.on("message", async (data) => {
       }));
     }, packet.d.heartbeat_interval);
 
-    // Guilds + Guild Messages + Message Content
     const intents =
-      1 |      // GUILDS
-      512 |    // GUILD_MESSAGES
-      32768;   // MESSAGE_CONTENT
+      1 |       // GUILDS
+      512 |     // GUILD_MESSAGES
+      32768;    // MESSAGE_CONTENT
 
     ws.send(JSON.stringify({
       op: 2,
@@ -58,12 +57,12 @@ ws.on("message", async (data) => {
     console.log("IDENTIFY SENT");
   }
 
-  // Bot successfully connected
+  // Bot is online
   if (packet.t === "READY") {
     console.log("BOT ONLINE:", packet.d.user.username);
   }
 
-  // Someone sent a message
+  // Message received
   if (packet.t === "MESSAGE_CREATE") {
     const message = packet.d;
 
@@ -76,7 +75,7 @@ ws.on("message", async (data) => {
         content: "Rank card test working!"
       };
 
-      await fetch(
+      const result = await fetch(
         `https://discord.com/api/v10/channels/${message.channel_id}/messages`,
         {
           method: "POST",
@@ -88,7 +87,11 @@ ws.on("message", async (data) => {
         }
       );
 
-      console.log("RANK RESPONSE SENT");
+      console.log("DISCORD API STATUS:", result.status);
+      console.log(
+        "DISCORD API RESPONSE:",
+        await result.text()
+      );
     }
   }
 });
@@ -98,7 +101,11 @@ ws.on("error", (error) => {
 });
 
 ws.on("close", (code, reason) => {
-  console.log("WEBSOCKET CLOSED:", code, reason.toString());
+  console.log(
+    "WEBSOCKET CLOSED:",
+    code,
+    reason.toString()
+  );
 
   if (heartbeatInterval) {
     clearInterval(heartbeatInterval);
