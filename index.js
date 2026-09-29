@@ -26,7 +26,8 @@ async function loadBackground() {
   try {
     if (!fs.existsSync(backgroundPath)) {
       console.error(
-        "ERROR: background.jpeg is missing from the project."
+        "BACKGROUND FILE NOT FOUND:",
+        backgroundPath
       );
       return;
     }
@@ -184,7 +185,7 @@ server.listen(
 );
 
 // ============================================================
-// SEND IMAGE TO DISCORD
+// SEND RANK CARD TO DISCORD
 // ============================================================
 
 async function sendRankCard(
@@ -242,7 +243,6 @@ async function sendRankCard(
       response.status
     );
 
-    // Discord rate limit
     if (response.status === 429) {
 
       const retryAfter =
@@ -251,11 +251,7 @@ async function sendRankCard(
         );
 
       console.error(
-        "DISCORD RATE LIMITED."
-      );
-
-      console.error(
-        "RETRY AFTER:",
+        "DISCORD RATE LIMITED:",
         retryAfter,
         "seconds"
       );
@@ -288,7 +284,7 @@ async function sendRankCard(
 }
 
 // ============================================================
-// DRAW COVER BACKGROUND
+// DRAW BACKGROUND
 // ============================================================
 
 function drawCover(
@@ -386,7 +382,7 @@ function roundedRect(
 }
 
 // ============================================================
-// TEXT WITH SHADOW
+// TEXT
 // ============================================================
 
 function drawText(
@@ -422,7 +418,7 @@ function drawText(
 }
 
 // ============================================================
-// CREATE MEE6-STYLE RANK CARD
+// CREATE RANK CARD
 // ============================================================
 
 async function createRankCard(
@@ -442,15 +438,15 @@ async function createRankCard(
   const ctx =
     canvas.getContext("2d");
 
-  // ========================================================
+  // ==========================================================
   // VOLCANO BACKGROUND
-  // ========================================================
+  // ==========================================================
 
   if (backgroundImage) {
 
     ctx.save();
 
-    // Slight blur — NOT heavily blurred.
+    // Slight blur only.
     ctx.filter =
       "blur(1.2px)";
 
@@ -465,7 +461,6 @@ async function createRankCard(
 
   } else {
 
-    // Fallback only if the image is missing.
     const fallback =
       ctx.createLinearGradient(
         0,
@@ -476,7 +471,7 @@ async function createRankCard(
 
     fallback.addColorStop(
       0,
-      "#332020"
+      "#382020"
     );
 
     fallback.addColorStop(
@@ -495,10 +490,7 @@ async function createRankCard(
     );
   }
 
-  // ========================================================
-  // VERY LIGHT DARK OVERLAY
-  // ========================================================
-
+  // Very subtle darkening.
   ctx.fillStyle =
     "rgba(0, 0, 0, 0.08)";
 
@@ -509,9 +501,9 @@ async function createRankCard(
     height
   );
 
-  // ========================================================
+  // ==========================================================
   // AVATAR
-  // ========================================================
+  // ==========================================================
 
   const avatar =
     await getAvatar(message);
@@ -520,20 +512,20 @@ async function createRankCard(
   const avatarY = 58;
   const avatarSize = 168;
 
-  const avatarCenterX =
+  const centerX =
     avatarX +
     avatarSize / 2;
 
-  const avatarCenterY =
+  const centerY =
     avatarY +
     avatarSize / 2;
 
-  // Black outer ring
+  // Black outer ring.
   ctx.beginPath();
 
   ctx.arc(
-    avatarCenterX,
-    avatarCenterY,
+    centerX,
+    centerY,
     avatarSize / 2 + 3,
     0,
     Math.PI * 2
@@ -544,14 +536,14 @@ async function createRankCard(
 
   ctx.fill();
 
-  // Avatar circle
+  // Avatar.
   ctx.save();
 
   ctx.beginPath();
 
   ctx.arc(
-    avatarCenterX,
-    avatarCenterY,
+    centerX,
+    centerY,
     avatarSize / 2,
     0,
     Math.PI * 2
@@ -584,15 +576,14 @@ async function createRankCard(
 
   ctx.restore();
 
-  // ========================================================
+  // ==========================================================
   // STATUS DOT
-  // ========================================================
+  // ==========================================================
 
   const statusX = 183;
   const statusY = 195;
   const statusRadius = 22;
 
-  // Black outline
   ctx.beginPath();
 
   ctx.arc(
@@ -608,7 +599,6 @@ async function createRankCard(
 
   ctx.fill();
 
-  // Gray status
   ctx.beginPath();
 
   ctx.arc(
@@ -624,14 +614,9 @@ async function createRankCard(
 
   ctx.fill();
 
-  // ========================================================
-  // IMPORTANT:
-  // NO UG TEXT / NO UG LOGO
-  // ========================================================
-
-  // ========================================================
+  // ==========================================================
   // RANK
-  // ========================================================
+  // ==========================================================
 
   drawText(
     ctx,
@@ -651,9 +636,9 @@ async function createRankCard(
     "#ffffff"
   );
 
-  // ========================================================
+  // ==========================================================
   // LEVEL
-  // ========================================================
+  // ==========================================================
 
   drawText(
     ctx,
@@ -673,9 +658,9 @@ async function createRankCard(
     "#18dce8"
   );
 
-  // ========================================================
+  // ==========================================================
   // USERNAME
-  // ========================================================
+  // ==========================================================
 
   drawText(
     ctx,
@@ -686,9 +671,9 @@ async function createRankCard(
     "#ffffff"
   );
 
-  // ========================================================
-  // XP
-  // ========================================================
+  // ==========================================================
+  // XP TEXT
+  // ==========================================================
 
   const needed =
     xpNeeded(
@@ -727,14 +712,11 @@ async function createRankCard(
       totalText
     ).width;
 
-  const totalTextWidth =
-    currentWidth +
-    separatorWidth +
-    totalWidth;
-
   const xpStartX =
     887 -
-    totalTextWidth;
+    currentWidth -
+    separatorWidth -
+    totalWidth;
 
   drawText(
     ctx,
@@ -766,9 +748,9 @@ async function createRankCard(
     "#6b89a8"
   );
 
-  // ========================================================
+  // ==========================================================
   // XP BAR
-  // ========================================================
+  // ==========================================================
 
   const barX = 256;
   const barY = 183;
@@ -776,7 +758,7 @@ async function createRankCard(
   const barHeight = 39;
   const barRadius = 20;
 
-  // Black border
+  // Black border.
   roundedRect(
     ctx,
     barX - 2,
@@ -791,7 +773,7 @@ async function createRankCard(
 
   ctx.fill();
 
-  // Gray track
+  // Gray background.
   roundedRect(
     ctx,
     barX,
@@ -806,7 +788,7 @@ async function createRankCard(
 
   ctx.fill();
 
-  // Progress
+  // Cyan XP progress.
   const progress =
     Math.max(
       0,
@@ -831,7 +813,7 @@ async function createRankCard(
 
     ctx.clip();
 
-    const progressGradient =
+    const gradient =
       ctx.createLinearGradient(
         barX,
         barY,
@@ -839,18 +821,18 @@ async function createRankCard(
         barY + barHeight
       );
 
-    progressGradient.addColorStop(
+    gradient.addColorStop(
       0,
       "#69e5d8"
     );
 
-    progressGradient.addColorStop(
+    gradient.addColorStop(
       1,
       "#4ed5cd"
     );
 
     ctx.fillStyle =
-      progressGradient;
+      gradient;
 
     ctx.fillRect(
       barX,
@@ -862,7 +844,7 @@ async function createRankCard(
     ctx.restore();
   }
 
-  // Final outline
+  // Black outline.
   roundedRect(
     ctx,
     barX,
@@ -1063,7 +1045,7 @@ function connectGateway() {
       }
 
       // ======================================================
-      // RECONNECT
+      // DISCORD RECONNECT
       // ======================================================
 
       if (packet.op === 7) {
@@ -1108,7 +1090,7 @@ function connectGateway() {
       }
 
       // ======================================================
-      // MESSAGE
+      // MESSAGE CREATE
       // ======================================================
 
       if (
@@ -1124,6 +1106,11 @@ function connectGateway() {
         ) {
           return;
         }
+
+        // Start avatar loading immediately.
+        // This helps reduce the delay when !rank is used.
+        const avatarPromise =
+          getAvatar(message);
 
         // ====================================================
         // XP
@@ -1180,6 +1167,10 @@ function connectGateway() {
             "!rank USED BY:",
             message.author.username
           );
+
+          // Wait for the avatar only if it
+          // hasn't already finished.
+          await avatarPromise;
 
           const allUsers =
             [
@@ -1308,3 +1299,63 @@ function connectGateway() {
   connectGateway();
 
 })();
+
+// ============================================================
+// CLEAN SHUTDOWN
+// ============================================================
+
+process.on(
+  "SIGTERM",
+  () => {
+
+    shuttingDown = true;
+
+    clearTimers();
+
+    if (
+      ws &&
+      ws.readyState ===
+        WebSocket.OPEN
+    ) {
+
+      ws.close(
+        1000,
+        "Render shutdown"
+      );
+    }
+
+    server.close(
+      () => {
+        process.exit(0);
+      }
+    );
+  }
+);
+
+process.on(
+  "SIGINT",
+  () => {
+
+    shuttingDown = true;
+
+    clearTimers();
+
+    if (
+      ws &&
+      ws.readyState ===
+        WebSocket.OPEN
+    ) {
+
+      ws.close(
+        1000,
+        "Process shutdown"
+      );
+    }
+
+    server.close(
+      () => {
+        process.exit(0);
+      }
+    );
+  }
+);
