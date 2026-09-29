@@ -11,55 +11,32 @@ if (!token) {
   process.exit(1);
 }
 
-// =========================
-// FILES
-// =========================
+// ============================================================
+// BACKGROUND
+// ============================================================
 
 const backgroundPath = path.join(__dirname, "background.jpeg");
-const ugLogoPath = path.join(__dirname, "ug-logo.png");
 
 let backgroundImage = null;
-let ugLogoImage = null;
 
-// Load local artwork once at startup so !rank does not wait for
-// the background/logo to load every time.
-const artworkReady = (async () => {
+async function loadBackground() {
   try {
-    if (fs.existsSync(backgroundPath)) {
-      backgroundImage = await loadImage(backgroundPath);
-      console.log("BACKGROUND LOADED");
-    } else {
-      console.log(
-        "background.jpeg NOT FOUND - USING FALLBACK BACKGROUND"
-      );
+    if (!fs.existsSync(backgroundPath)) {
+      console.error("BACKGROUND FILE NOT FOUND:", backgroundPath);
+      return;
     }
-  } catch (error) {
-    console.error(
-      "BACKGROUND LOAD ERROR:",
-      error.message
-    );
-  }
 
-  try {
-    if (fs.existsSync(ugLogoPath)) {
-      ugLogoImage = await loadImage(ugLogoPath);
-      console.log("UG LOGO LOADED");
-    } else {
-      console.log(
-        "ug-logo.png NOT FOUND - USING FALLBACK UG TEXT"
-      );
-    }
-  } catch (error) {
-    console.error(
-      "UG LOGO LOAD ERROR:",
-      error.message
-    );
-  }
-})();
+    backgroundImage = await loadImage(backgroundPath);
 
-// =========================
+    console.log("BACKGROUND LOADED SUCCESSFULLY");
+  } catch (error) {
+    console.error("BACKGROUND LOAD ERROR:", error.message);
+  }
+}
+
+// ============================================================
 // USER DATA
-// =========================
+// ============================================================
 
 const users = new Map();
 
@@ -80,28 +57,32 @@ function xpNeeded(level) {
 
 function formatXP(value) {
   if (value >= 1000000) {
-    return `${(value / 1000000)
-      .toFixed(2)
-      .replace(/0+$/, "")
-      .replace(/\.$/, "")}M`;
+    return (
+      (value / 1000000)
+        .toFixed(2)
+        .replace(/0+$/, "")
+        .replace(/\.$/, "") + "M"
+    );
   }
 
   if (value >= 1000) {
-    return `${(value / 1000)
-      .toFixed(2)
-      .replace(/0+$/, "")
-      .replace(/\.$/, "")}K`;
+    return (
+      (value / 1000)
+        .toFixed(2)
+        .replace(/0+$/, "")
+        .replace(/\.$/, "") + "K"
+    );
   }
 
   return String(value);
 }
 
-// =========================
+// ============================================================
 // AVATAR CACHE
-// =========================
+// ============================================================
 
 const avatarCache = new Map();
-const AVATAR_CACHE_MS = 5 * 60 * 1000;
+const AVATAR_CACHE_TIME = 5 * 60 * 1000;
 
 async function getAvatar(message) {
   const avatarHash = message.author?.avatar;
@@ -110,15 +91,11 @@ async function getAvatar(message) {
     return null;
   }
 
-  const cacheKey =
-    `${message.author.id}:${avatarHash}`;
+  const cacheKey = `${message.author.id}:${avatarHash}`;
 
   const cached = avatarCache.get(cacheKey);
 
-  if (
-    cached &&
-    Date.now() - cached.time < AVATAR_CACHE_MS
-  ) {
+  if (cached && Date.now() - cached.time < AVATAR_CACHE_TIME) {
     return cached.image;
   }
 
@@ -133,51 +110,34 @@ async function getAvatar(message) {
     });
 
     return image;
-
   } catch (error) {
-    console.log(
-      "AVATAR LOAD FAILED:",
-      error.message
-    );
-
+    console.error("AVATAR LOAD FAILED:", error.message);
     return null;
   }
 }
 
-// =========================
-// WEB SERVER
-// =========================
+// ============================================================
+// RENDER WEB SERVER
+// ============================================================
 
 const server = http.createServer((req, res) => {
   res.writeHead(200, {
-    "Content-Type":
-      "text/plain; charset=utf-8",
+    "Content-Type": "text/plain; charset=utf-8",
     "Cache-Control": "no-store"
   });
 
-  res.end(
-    "B.T.N.L System is running!"
-  );
+  res.end("B.T.N.L System is running!");
 });
 
-server.listen(
-  process.env.PORT || 10000,
-  "0.0.0.0",
-  () => {
-    console.log(
-      "WEB SERVER STARTED"
-    );
-  }
-);
+server.listen(process.env.PORT || 10000, "0.0.0.0", () => {
+  console.log("WEB SERVER STARTED");
+});
 
-// =========================
-// DISCORD API
-// =========================
+// ============================================================
+// SEND RANK CARD
+// ============================================================
 
-async function sendRankCard(
-  channelId,
-  imageBuffer
-) {
+async function sendRankCard(channelId, imageBuffer) {
   try {
     const form = new FormData();
 
@@ -207,33 +167,17 @@ async function sendRankCard(
         method: "POST",
 
         headers: {
-          Authorization:
-            `Bot ${token}`,
-
-          "User-Agent":
-            "DiscordBot (https://github.com/, 1.0)"
+          Authorization: `Bot ${token}`,
+          "User-Agent": "B.T.N.L System/1.0"
         },
 
         body: form
       }
     );
 
-    console.log(
-      "DISCORD API STATUS:",
-      response.status
-    );
+    console.log("DISCORD API STATUS:", response.status);
 
-    if (response.status === 429) {
-      console.log(
-        "RATE LIMITED:",
-        response.headers.get("retry-after")
-      );
-
-      return false;
-    }
-
-    const responseText =
-      await response.text();
+    const responseText = await response.text();
 
     console.log(
       "DISCORD RESPONSE:",
@@ -241,20 +185,40 @@ async function sendRankCard(
     );
 
     return response.ok;
-
   } catch (error) {
-    console.error(
-      "SEND IMAGE ERROR:",
-      error.message
-    );
-
+    console.error("SEND IMAGE ERROR:", error.message);
     return false;
   }
 }
 
-// =========================
-// DRAW HELPERS
-// =========================
+// ============================================================
+// DRAW COVER
+// ============================================================
+
+function drawCover(ctx, image, width, height) {
+  const scale = Math.max(
+    width / image.width,
+    height / image.height
+  );
+
+  const drawWidth = image.width * scale;
+  const drawHeight = image.height * scale;
+
+  const x = (width - drawWidth) / 2;
+  const y = (height - drawHeight) / 2;
+
+  ctx.drawImage(
+    image,
+    x,
+    y,
+    drawWidth,
+    drawHeight
+  );
+}
+
+// ============================================================
+// ROUNDED RECTANGLE
+// ============================================================
 
 function roundedRect(
   ctx,
@@ -272,10 +236,7 @@ function roundedRect(
 
   ctx.beginPath();
 
-  ctx.moveTo(
-    x + r,
-    y
-  );
+  ctx.moveTo(x + r, y);
 
   ctx.arcTo(
     x + width,
@@ -312,232 +273,118 @@ function roundedRect(
   ctx.closePath();
 }
 
-function drawCover(
-  ctx,
-  image,
-  x,
-  y,
-  width,
-  height
-) {
-  const scale = Math.max(
-    width / image.width,
-    height / image.height
-  );
+// ============================================================
+// TEXT
+// ============================================================
 
-  const sourceWidth =
-    width / scale;
-
-  const sourceHeight =
-    height / scale;
-
-  const sourceX =
-    (image.width - sourceWidth) / 2;
-
-  const sourceY =
-    (image.height - sourceHeight) / 2;
-
-  ctx.drawImage(
-    image,
-    sourceX,
-    sourceY,
-    sourceWidth,
-    sourceHeight,
-    x,
-    y,
-    width,
-    height
-  );
-}
-
-function drawTextWithShadow(
+function drawText(
   ctx,
   text,
   x,
   y,
   font,
-  fillStyle,
-  textAlign = "left"
+  color,
+  align = "left"
 ) {
   ctx.save();
 
   ctx.font = font;
-  ctx.textAlign = textAlign;
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
   ctx.textBaseline = "alphabetic";
 
-  ctx.shadowColor =
-    "rgba(0, 0, 0, 0.78)";
-
-  ctx.shadowBlur = 3;
+  ctx.shadowColor = "rgba(0,0,0,0.65)";
+  ctx.shadowBlur = 2;
   ctx.shadowOffsetX = 1;
   ctx.shadowOffsetY = 2;
 
-  ctx.fillStyle = fillStyle;
-
-  ctx.fillText(
-    text,
-    x,
-    y
-  );
+  ctx.fillText(text, x, y);
 
   ctx.restore();
 }
 
-// =========================
+// ============================================================
 // CREATE RANK CARD
-// =========================
+// ============================================================
 
-async function createRankCard(
-  message,
-  userData,
-  rank
-) {
-  // Exact size of your reference card.
+async function createRankCard(message, userData, rank) {
   const width = 934;
   const height = 282;
 
-  await artworkReady;
+  const canvas = createCanvas(width, height);
+  const ctx = canvas.getContext("2d");
 
-  const canvas =
-    createCanvas(
-      width,
-      height
-    );
-
-  const ctx =
-    canvas.getContext("2d");
-
-  // =========================
+  // ==========================================================
   // BACKGROUND
-  // =========================
+  // ==========================================================
 
   if (backgroundImage) {
-
     ctx.save();
 
-    // Very small blur like the reference.
-    ctx.filter =
-      "blur(1.5px)";
+    ctx.filter = "blur(1.2px)";
 
     drawCover(
       ctx,
       backgroundImage,
-      -2,
-      -2,
-      width + 4,
-      height + 4
+      width,
+      height
     );
 
     ctx.restore();
-
-    // Subtle dark overlay for readability.
-    const overlay =
-      ctx.createLinearGradient(
-        0,
-        0,
-        width,
-        0
-      );
-
-    overlay.addColorStop(
-      0,
-      "rgba(0, 0, 0, 0.10)"
-    );
-
-    overlay.addColorStop(
-      0.48,
-      "rgba(0, 0, 0, 0.06)"
-    );
-
-    overlay.addColorStop(
-      1,
-      "rgba(0, 0, 0, 0.16)"
-    );
-
-    ctx.fillStyle =
-      overlay;
-
-    ctx.fillRect(
-      0,
-      0,
-      width,
-      height
-    );
-
   } else {
-
-    const fallback =
-      ctx.createLinearGradient(
-        0,
-        0,
-        width,
-        height
-      );
-
-    fallback.addColorStop(
-      0,
-      "#3a2020"
-    );
-
-    fallback.addColorStop(
-      1,
-      "#121820"
-    );
-
-    ctx.fillStyle =
-      fallback;
-
-    ctx.fillRect(
+    const fallback = ctx.createLinearGradient(
       0,
       0,
       width,
       height
     );
+
+    fallback.addColorStop(0, "#382020");
+    fallback.addColorStop(1, "#15171d");
+
+    ctx.fillStyle = fallback;
+    ctx.fillRect(0, 0, width, height);
   }
 
-  // =========================
-  // AVATAR
-  // =========================
+  // Slight dark overlay
+  ctx.fillStyle = "rgba(0,0,0,0.08)";
+  ctx.fillRect(0, 0, width, height);
 
-  const avatar =
-    await getAvatar(message);
+  // ==========================================================
+  // AVATAR
+  // ==========================================================
+
+  const avatar = await getAvatar(message);
 
   const avatarX = 39;
   const avatarY = 58;
   const avatarSize = 168;
 
-  const avatarCenterX =
-    avatarX +
-    avatarSize / 2;
+  const centerX = avatarX + avatarSize / 2;
+  const centerY = avatarY + avatarSize / 2;
 
-  const avatarCenterY =
-    avatarY +
-    avatarSize / 2;
-
-  // Outer black ring.
+  // Outer black ring
   ctx.beginPath();
 
   ctx.arc(
-    avatarCenterX,
-    avatarCenterY,
+    centerX,
+    centerY,
     avatarSize / 2 + 3,
     0,
     Math.PI * 2
   );
 
-  ctx.fillStyle =
-    "#050505";
-
+  ctx.fillStyle = "#050505";
   ctx.fill();
 
-  // Clip avatar.
+  // Avatar
   ctx.save();
 
   ctx.beginPath();
 
   ctx.arc(
-    avatarCenterX,
-    avatarCenterY,
+    centerX,
+    centerY,
     avatarSize / 2,
     0,
     Math.PI * 2
@@ -546,7 +393,6 @@ async function createRankCard(
   ctx.clip();
 
   if (avatar) {
-
     ctx.drawImage(
       avatar,
       avatarX,
@@ -554,11 +400,8 @@ async function createRankCard(
       avatarSize,
       avatarSize
     );
-
   } else {
-
-    ctx.fillStyle =
-      "#4b5259";
+    ctx.fillStyle = "#555b62";
 
     ctx.fillRect(
       avatarX,
@@ -570,15 +413,14 @@ async function createRankCard(
 
   ctx.restore();
 
-  // =========================
+  // ==========================================================
   // STATUS DOT
-  // =========================
+  // ==========================================================
 
   const statusX = 183;
   const statusY = 195;
   const statusRadius = 22;
 
-  // Outer black ring.
   ctx.beginPath();
 
   ctx.arc(
@@ -589,12 +431,9 @@ async function createRankCard(
     Math.PI * 2
   );
 
-  ctx.fillStyle =
-    "#0a0a0a";
-
+  ctx.fillStyle = "#080808";
   ctx.fill();
 
-  // Gray status dot.
   ctx.beginPath();
 
   ctx.arc(
@@ -605,53 +444,14 @@ async function createRankCard(
     Math.PI * 2
   );
 
-  ctx.fillStyle =
-    "#818991";
-
+  ctx.fillStyle = "#858e96";
   ctx.fill();
 
-  // =========================
-  // UG LOGO
-  // =========================
-
-  if (ugLogoImage) {
-
-    ctx.save();
-
-    ctx.shadowColor =
-      "rgba(0, 0, 0, 0.55)";
-
-    ctx.shadowBlur = 3;
-    ctx.shadowOffsetX = 2;
-    ctx.shadowOffsetY = 3;
-
-    ctx.drawImage(
-      ugLogoImage,
-      298,
-      4,
-      206,
-      131
-    );
-
-    ctx.restore();
-
-  } else {
-
-    drawTextWithShadow(
-      ctx,
-      "UG",
-      300,
-      104,
-      "900 78px Arial",
-      "#77736c"
-    );
-  }
-
-  // =========================
+  // ==========================================================
   // RANK
-  // =========================
+  // ==========================================================
 
-  drawTextWithShadow(
+  drawText(
     ctx,
     "RANK",
     509,
@@ -660,7 +460,7 @@ async function createRankCard(
     "#ffffff"
   );
 
-  drawTextWithShadow(
+  drawText(
     ctx,
     `#${rank}`,
     570,
@@ -669,11 +469,11 @@ async function createRankCard(
     "#ffffff"
   );
 
-  // =========================
+  // ==========================================================
   // LEVEL
-  // =========================
+  // ==========================================================
 
-  drawTextWithShadow(
+  drawText(
     ctx,
     "LEVEL",
     739,
@@ -682,20 +482,20 @@ async function createRankCard(
     "#18dce8"
   );
 
-  drawTextWithShadow(
+  drawText(
     ctx,
     String(userData.level),
-    810,
+    809,
     101,
     "56px Arial",
     "#18dce8"
   );
 
-  // =========================
+  // ==========================================================
   // USERNAME
-  // =========================
+  // ==========================================================
 
-  drawTextWithShadow(
+  drawText(
     ctx,
     message.author.username,
     274,
@@ -704,53 +504,28 @@ async function createRankCard(
     "#ffffff"
   );
 
-  // =========================
+  // ==========================================================
   // XP TEXT
-  // =========================
+  // ==========================================================
 
-  const needed =
-    xpNeeded(
-      userData.level
-    );
+  const needed = xpNeeded(userData.level);
+  const currentXP = userData.xp;
 
-  const currentXP =
-    userData.xp;
+  const currentText = formatXP(currentXP);
+  const totalText = `${formatXP(needed)} XP`;
 
-  const currentText =
-    formatXP(currentXP);
-
-  const totalText =
-    `${formatXP(needed)} XP`;
-
-  const xpY = 166;
-
-  ctx.save();
-
-  ctx.textBaseline =
-    "alphabetic";
-
-  ctx.textAlign =
-    "left";
-
-  ctx.font =
-    "24px Arial";
-
-  const currentWidth =
-    ctx.measureText(
-      currentText
-    ).width;
+  ctx.font = "24px Arial";
 
   const separator = " / ";
 
+  const currentWidth =
+    ctx.measureText(currentText).width;
+
   const separatorWidth =
-    ctx.measureText(
-      separator
-    ).width;
+    ctx.measureText(separator).width;
 
   const totalWidth =
-    ctx.measureText(
-      totalText
-    ).width;
+    ctx.measureText(totalText).width;
 
   const xpStartX =
     887 -
@@ -758,41 +533,38 @@ async function createRankCard(
     separatorWidth -
     totalWidth;
 
-  drawTextWithShadow(
+  drawText(
     ctx,
     currentText,
     xpStartX,
-    xpY,
+    166,
     "24px Arial",
     "#ffffff"
   );
 
-  drawTextWithShadow(
+  drawText(
     ctx,
     separator,
-    xpStartX +
-      currentWidth,
-    xpY,
+    xpStartX + currentWidth,
+    166,
     "24px Arial",
-    "#5b7796"
+    "#6b89a8"
   );
 
-  drawTextWithShadow(
+  drawText(
     ctx,
     totalText,
     xpStartX +
       currentWidth +
       separatorWidth,
-    xpY,
+    166,
     "24px Arial",
-    "#5b7796"
+    "#6b89a8"
   );
 
-  ctx.restore();
-
-  // =========================
+  // ==========================================================
   // XP BAR
-  // =========================
+  // ==========================================================
 
   const barX = 256;
   const barY = 183;
@@ -800,7 +572,7 @@ async function createRankCard(
   const barHeight = 39;
   const barRadius = 20;
 
-  // Outer black border.
+  // Black border
   roundedRect(
     ctx,
     barX - 2,
@@ -810,12 +582,10 @@ async function createRankCard(
     barRadius + 2
   );
 
-  ctx.fillStyle =
-    "#050505";
-
+  ctx.fillStyle = "#030303";
   ctx.fill();
 
-  // Gray track.
+  // Gray background
   roundedRect(
     ctx,
     barX,
@@ -825,23 +595,19 @@ async function createRankCard(
     barRadius
   );
 
-  ctx.fillStyle =
-    "#4b5055";
-
+  ctx.fillStyle = "#4b5055";
   ctx.fill();
 
-  // XP progress.
-  const progress =
-    Math.max(
-      0,
-      Math.min(
-        currentXP / needed,
-        1
-      )
-    );
+  // XP progress
+  const progress = Math.max(
+    0,
+    Math.min(
+      userData.xp / needed,
+      1
+    )
+  );
 
   if (progress > 0) {
-
     ctx.save();
 
     roundedRect(
@@ -855,7 +621,7 @@ async function createRankCard(
 
     ctx.clip();
 
-    const progressGradient =
+    const gradient =
       ctx.createLinearGradient(
         barX,
         barY,
@@ -863,18 +629,17 @@ async function createRankCard(
         barY + barHeight
       );
 
-    progressGradient.addColorStop(
+    gradient.addColorStop(
       0,
-      "#68e5d8"
+      "#69e5d8"
     );
 
-    progressGradient.addColorStop(
+    gradient.addColorStop(
       1,
       "#4ed5cd"
     );
 
-    ctx.fillStyle =
-      progressGradient;
+    ctx.fillStyle = gradient;
 
     ctx.fillRect(
       barX,
@@ -886,7 +651,7 @@ async function createRankCard(
     ctx.restore();
   }
 
-  // Final black outline.
+  // Black outline
   roundedRect(
     ctx,
     barX,
@@ -897,76 +662,50 @@ async function createRankCard(
   );
 
   ctx.lineWidth = 2;
-
-  ctx.strokeStyle =
-    "#050505";
-
+  ctx.strokeStyle = "#050505";
   ctx.stroke();
 
-  return canvas.toBuffer(
-    "image/png"
-  );
+  return canvas.toBuffer("image/png");
 }
 
-// =========================
+// ============================================================
 // DISCORD GATEWAY
-// =========================
+// ============================================================
 
 let ws = null;
 let heartbeatInterval = null;
 let reconnectTimer = null;
 let sequence = null;
-let intentionallyClosed = false;
+let shuttingDown = false;
 
-function clearGatewayTimers() {
-
+function clearTimers() {
   if (heartbeatInterval) {
-
-    clearInterval(
-      heartbeatInterval
-    );
-
+    clearInterval(heartbeatInterval);
     heartbeatInterval = null;
   }
 
   if (reconnectTimer) {
-
-    clearTimeout(
-      reconnectTimer
-    );
-
+    clearTimeout(reconnectTimer);
     reconnectTimer = null;
   }
 }
 
-function scheduleReconnect(
-  delay = 5000
-) {
-  if (
-    intentionallyClosed ||
-    reconnectTimer
-  ) {
+function scheduleReconnect() {
+  if (shuttingDown || reconnectTimer) {
     return;
   }
 
-  reconnectTimer =
-    setTimeout(() => {
-
-      reconnectTimer = null;
-
-      connectGateway();
-
-    }, delay);
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    connectGateway();
+  }, 5000);
 }
 
 function sendHeartbeat() {
-
   if (
     ws &&
-    ws.readyState ===
-      WebSocket.OPEN
+    ws.readyState === WebSocket.OPEN
   ) {
-
     ws.send(
       JSON.stringify({
         op: 1,
@@ -977,8 +716,7 @@ function sendHeartbeat() {
 }
 
 function connectGateway() {
-
-  clearGatewayTimers();
+  clearTimers();
 
   console.log(
     "CONNECTING TO DISCORD GATEWAY"
@@ -988,402 +726,311 @@ function connectGateway() {
     "wss://gateway.discord.gg/?v=10&encoding=json"
   );
 
-  ws.on(
-    "open",
-    () => {
+  ws.on("open", () => {
+    console.log(
+      "DISCORD GATEWAY CONNECTED"
+    );
+  });
 
-      console.log(
-        "DISCORD GATEWAY CONNECTED"
+  ws.on("message", async (data) => {
+    let packet;
+
+    try {
+      packet = JSON.parse(
+        data.toString()
       );
+    } catch (error) {
+      console.error(
+        "GATEWAY JSON ERROR:",
+        error.message
+      );
+
+      return;
     }
-  );
 
-  ws.on(
-    "message",
-    async (data) => {
+    if (
+      packet.s !== null &&
+      packet.s !== undefined
+    ) {
+      sequence = packet.s;
+    }
 
-      let packet;
+    // ========================================================
+    // HELLO
+    // ========================================================
 
-      try {
-
-        packet =
-          JSON.parse(
-            data.toString()
-          );
-
-      } catch (error) {
-
-        console.error(
-          "GATEWAY JSON ERROR:",
-          error.message
-        );
-
-        return;
-      }
-
-      if (
-        packet.s !== null &&
-        packet.s !== undefined
-      ) {
-
-        sequence =
-          packet.s;
-      }
-
-      // =========================
-      // HELLO
-      // =========================
-
-      if (packet.op === 10) {
-
+    if (packet.op === 10) {
+      if (heartbeatInterval) {
         clearInterval(
           heartbeatInterval
         );
+      }
 
-        const interval =
-          packet.d.heartbeat_interval;
+      heartbeatInterval =
+        setInterval(
+          sendHeartbeat,
+          packet.d.heartbeat_interval
+        );
 
-        heartbeatInterval =
-          setInterval(
-            sendHeartbeat,
-            interval
-          );
+      sendHeartbeat();
 
-        sendHeartbeat();
+      const intents =
+        1 |
+        512 |
+        32768;
 
-        const intents =
-          1 |       // GUILDS
-          512 |     // GUILD_MESSAGES
-          32768;    // MESSAGE_CONTENT
+      ws.send(
+        JSON.stringify({
+          op: 2,
 
-        ws.send(
-          JSON.stringify({
-            op: 2,
+          d: {
+            token,
 
-            d: {
-              token,
+            intents,
 
-              intents,
-
-              properties: {
-                os: "linux",
-                browser:
-                  "B.T.N.L System",
-                device:
-                  "B.T.N.L System"
-              }
+            properties: {
+              os: "linux",
+              browser: "B.T.N.L System",
+              device: "B.T.N.L System"
             }
-          })
-        );
-
-        console.log(
-          "IDENTIFY SENT"
-        );
-      }
-
-      // =========================
-      // RECONNECT REQUEST
-      // =========================
-
-      if (packet.op === 7) {
-
-        console.log(
-          "DISCORD REQUESTED RECONNECT"
-        );
-
-        if (
-          ws.readyState ===
-          WebSocket.OPEN
-        ) {
-
-          ws.close(
-            1000,
-            "Reconnect requested"
-          );
-        }
-
-        return;
-      }
-
-      // =========================
-      // INVALID SESSION
-      // =========================
-
-      if (packet.op === 9) {
-
-        console.log(
-          "DISCORD INVALID SESSION"
-        );
-
-        if (
-          ws.readyState ===
-          WebSocket.OPEN
-        ) {
-
-          ws.close(
-            1000,
-            "Invalid session"
-          );
-        }
-
-        return;
-      }
-
-      // =========================
-      // READY
-      // =========================
-
-      if (
-        packet.t ===
-        "READY"
-      ) {
-
-        console.log(
-          "BOT ONLINE:",
-          packet.d.user.username
-        );
-      }
-
-      // =========================
-      // NEW MESSAGE
-      // =========================
-
-      if (
-        packet.t ===
-        "MESSAGE_CREATE"
-      ) {
-
-        const message =
-          packet.d;
-
-        if (
-          message.author?.bot
-        ) {
-          return;
-        }
-
-        // Random XP 0-100.
-        const user =
-          getUser(
-            message.author.id
-          );
-
-        const gainedXP =
-          Math.floor(
-            Math.random() * 101
-          );
-
-        user.xp +=
-          gainedXP;
-
-        // Level up.
-        while (
-          user.xp >=
-          xpNeeded(
-            user.level
-          )
-        ) {
-
-          user.xp -=
-            xpNeeded(
-              user.level
-            );
-
-          user.level++;
-
-          console.log(
-            `${message.author.username} reached level ${user.level}`
-          );
-        }
-
-        // =========================
-        // !rank
-        // =========================
-
-        if (
-          message.content
-            ?.toLowerCase()
-            .trim() ===
-          "!rank"
-        ) {
-
-          console.log(
-            "!rank USED BY:",
-            message.author.username
-          );
-
-          const allUsers =
-            [
-              ...users.entries()
-            ];
-
-          allUsers.sort(
-            (a, b) => {
-
-              if (
-                b[1].level !==
-                a[1].level
-              ) {
-
-                return (
-                  b[1].level -
-                  a[1].level
-                );
-              }
-
-              return (
-                b[1].xp -
-                a[1].xp
-              );
-            }
-          );
-
-          const rankIndex =
-            allUsers.findIndex(
-              ([id]) =>
-                id ===
-                message.author.id
-            );
-
-          const rank =
-            rankIndex === -1
-              ? 1
-              : rankIndex + 1;
-
-          try {
-
-            const image =
-              await createRankCard(
-                message,
-                user,
-                rank
-              );
-
-            const success =
-              await sendRankCard(
-                message.channel_id,
-                image
-              );
-
-            if (success) {
-
-              console.log(
-                "RANK CARD SENT"
-              );
-
-            } else {
-
-              console.log(
-                "RANK CARD FAILED"
-              );
-            }
-
-          } catch (error) {
-
-            console.error(
-              "RANK CARD ERROR:",
-              error
-            );
           }
-        }
-      }
-    }
-  );
+        })
+      );
 
-  ws.on(
-    "error",
-    (error) => {
-
-      console.error(
-        "WEBSOCKET ERROR:",
-        error.message
+      console.log(
+        "IDENTIFY SENT"
       );
     }
-  );
 
-  ws.on(
-    "close",
-    (code, reason) => {
+    // ========================================================
+    // RECONNECT
+    // ========================================================
 
+    if (packet.op === 7) {
+      console.log(
+        "DISCORD REQUESTED RECONNECT"
+      );
+
+      ws.close();
+
+      return;
+    }
+
+    // ========================================================
+    // INVALID SESSION
+    // ========================================================
+
+    if (packet.op === 9) {
+      console.log(
+        "DISCORD INVALID SESSION"
+      );
+
+      ws.close();
+
+      return;
+    }
+
+    // ========================================================
+    // READY
+    // ========================================================
+
+    if (packet.t === "READY") {
+      console.log(
+        "BOT ONLINE:",
+        packet.d.user.username
+      );
+    }
+
+    // ========================================================
+    // MESSAGE CREATE
+    // ========================================================
+
+    if (packet.t === "MESSAGE_CREATE") {
+      const message = packet.d;
+
+      if (message.author?.bot) {
+        return;
+      }
+
+      // Begin loading avatar immediately
+      const avatarPromise =
+        getAvatar(message);
+
+      // ======================================================
+      // XP
+      // ======================================================
+
+      const user =
+        getUser(
+          message.author.id
+        );
+
+      const gainedXP =
+        Math.floor(
+          Math.random() * 101
+        );
+
+      user.xp += gainedXP;
+
+      // ======================================================
+      // LEVEL UP
+      // ======================================================
+
+      while (
+        user.xp >=
+        xpNeeded(user.level)
+      ) {
+        user.xp -=
+          xpNeeded(user.level);
+
+        user.level++;
+
+        console.log(
+          `${message.author.username} reached level ${user.level}`
+        );
+      }
+
+      // ======================================================
+      // !RANK
+      // ======================================================
+
+      if (
+        message.content
+          ?.toLowerCase()
+          .trim() === "!rank"
+      ) {
+        console.log(
+          "!rank USED BY:",
+          message.author.username
+        );
+
+        await avatarPromise;
+
+        const allUsers =
+          [...users.entries()];
+
+        allUsers.sort(
+          (a, b) => {
+            if (
+              b[1].level !==
+              a[1].level
+            ) {
+              return (
+                b[1].level -
+                a[1].level
+              );
+            }
+
+            return (
+              b[1].xp -
+              a[1].xp
+            );
+          }
+        );
+
+        const rankIndex =
+          allUsers.findIndex(
+            ([id]) =>
+              id ===
+              message.author.id
+          );
+
+        const rank =
+          rankIndex === -1
+            ? 1
+            : rankIndex + 1;
+
+        try {
+          const image =
+            await createRankCard(
+              message,
+              user,
+              rank
+            );
+
+          const success =
+            await sendRankCard(
+              message.channel_id,
+              image
+            );
+
+          if (success) {
+            console.log(
+              "RANK CARD SENT"
+            );
+          } else {
+            console.log(
+              "RANK CARD FAILED"
+            );
+          }
+        } catch (error) {
+          console.error(
+            "RANK CARD ERROR:",
+            error
+          );
+        }
+      }
+    }
+  });
+
+  ws.on("error", (error) => {
+    console.error(
+      "WEBSOCKET ERROR:",
+      error.message
+    );
+  });
+
+  ws.on("close", (code, reason) => {
+    if (heartbeatInterval) {
       clearInterval(
         heartbeatInterval
       );
 
-      heartbeatInterval =
-        null;
-
-      console.log(
-        "WEBSOCKET CLOSED:",
-        code,
-        reason.toString()
-      );
-
-      scheduleReconnect(5000);
+      heartbeatInterval = null;
     }
-  );
+
+    console.log(
+      "WEBSOCKET CLOSED:",
+      code,
+      reason.toString()
+    );
+
+    scheduleReconnect();
+  });
 }
 
-// Start Discord connection.
-connectGateway();
+// ============================================================
+// START
+// ============================================================
 
-// =========================
+(async () => {
+  await loadBackground();
+  connectGateway();
+})();
+
+// ============================================================
 // CLEAN SHUTDOWN
-// =========================
+// ============================================================
 
-process.on(
-  "SIGTERM",
-  () => {
+function shutdown() {
+  shuttingDown = true;
 
-    intentionallyClosed =
-      true;
+  clearTimers();
 
-    clearGatewayTimers();
-
-    if (
-      ws &&
-      ws.readyState ===
-        WebSocket.OPEN
-    ) {
-
-      ws.close(
-        1000,
-        "Render shutdown"
-      );
-    }
-
-    server.close(
-      () => {
-        process.exit(0);
-      }
+  if (
+    ws &&
+    ws.readyState === WebSocket.OPEN
+  ) {
+    ws.close(
+      1000,
+      "Process shutdown"
     );
   }
-);
 
-process.on(
-  "SIGINT",
-  () => {
+  server.close(() => {
+    process.exit(0);
+  });
+}
 
-    intentionallyClosed =
-      true;
-
-    clearGatewayTimers();
-
-    if (
-      ws &&
-      ws.readyState ===
-        WebSocket.OPEN
-    ) {
-
-      ws.close(
-        1000,
-        "Process shutdown"
-      );
-    }
-
-    server.close(
-      () => {
-        process.exit(0);
-      }
-    );
-  }
-);
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
